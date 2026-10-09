@@ -1,0 +1,99 @@
+Problem 2(a)	
+SELECT
+    EMPLOYEE.Ssn,
+    EMPLOYEE.Bdate,
+    COUNT(WORKS_ON.Pno) AS ProjectCount
+FROM
+    EMPLOYEE
+    LEFT JOIN WORKS_ON ON EMPLOYEE.Ssn = WORKS_ON.Essn
+WHERE
+    Dno IN (
+        SELECT
+            Dnumber
+        FROM
+            DEPT_LOCATIONS
+        GROUP BY
+            Dnumber
+        HAVING
+            COUNT(Dlocation) >= 2
+    )
+GROUP BY
+    EMPLOYEE.Ssn,
+    EMPLOYEE.Bdate; 
+
+Problem 2(b)	 
+WITH ranked_employee AS (
+    SELECT
+        e.Dno,
+        d.Dname,
+        e.Salary,
+        ROW_NUMBER() OVER (
+            PARTITION BY e.Dno
+            ORDER BY e.Salary DESC
+        ) AS salary_rank,
+        COUNT(*) OVER (
+            PARTITION BY e.Dno
+        ) AS employee_count
+    FROM EMPLOYEE AS e
+    JOIN DEPARTMENT AS d
+        ON e.Dno = d.Dnumber
+)
+SELECT
+    Dno AS Dnumber,
+    Dname,
+    Salary
+FROM ranked_employee
+WHERE employee_count > 1 AND salary_rank = 2;
+
+Problem 2(c)	
+SELECT
+    p.Pnumber,
+    p.Pname,
+    COUNT(DISTINCT e.Dno) AS DepartmentCount
+FROM PROJECT AS p
+LEFT JOIN WORKS_ON AS w
+    ON p.Pnumber = w.Pno
+LEFT JOIN EMPLOYEE AS e
+    ON w.Essn = e.Ssn
+GROUP BY
+    p.Pnumber,
+    p.Pname;
+
+Problem 2(d)	
+SELECT DISTINCT
+    e.Ssn,
+    e.Lname,
+    CASE
+        WHEN e.Salary >= 40000 THEN 'yes'
+        ELSE 'no'
+    END AS SalaryAtLeast40000,
+    d.Mgr_ssn,
+    m.Lname AS Mgr_Lname
+FROM EMPLOYEE AS e
+JOIN DEPARTMENT AS d
+    ON e.Dno = d.Dnumber
+JOIN EMPLOYEE AS m
+    ON d.Mgr_ssn = m.Ssn
+JOIN WORKS_ON AS w
+    ON e.Ssn = w.Essn
+WHERE w.Pno IN
+(
+    SELECT Pno
+    FROM WORKS_ON
+    GROUP BY Pno
+    HAVING COUNT(*) > 1
+);
+
+Problem 2(e)	
+SELECT
+    e.Ssn,
+    COUNT(d.Dependent_name) AS DependentCount
+FROM EMPLOYEE AS e
+LEFT JOIN DEPENDENT AS d
+    ON e.Ssn = d.Essn
+WHERE NOT EXISTS (
+    SELECT *
+    FROM EMPLOYEE AS sub
+    WHERE sub.Super_ssn = e.Ssn
+)
+GROUP BY e.Ssn;
