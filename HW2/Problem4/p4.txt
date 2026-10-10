@@ -1,0 +1,334 @@
+--------------------------------------------------
+Problem4 (a)
+--------------------------------------------------
+import pandas as pd
+import duckdb
+import psycopg2
+
+# 1. Connect to PostgreSQL
+pg_conn = psycopg2.connect(dbname="online_learning")
+
+# 2. Read the four tables from PostgreSQL into pandas DataFrames
+subscriptions = pd.read_sql(
+    "SELECT * FROM subscriptions",
+    pg_conn
+)
+
+statechanges = pd.read_sql(
+    "SELECT * FROM statechanges",
+    pg_conn
+)
+
+usermissions = pd.read_sql(
+    "SELECT * FROM usermissions",
+    pg_conn
+)
+
+answers = pd.read_sql(
+    "SELECT * FROM answers",
+    pg_conn
+)
+
+# Close PostgreSQL connection
+pg_conn.close()
+
+# 3. Create a DuckDB connection
+con = duckdb.connect()
+
+# 4. Register the pandas DataFrames in DuckDB
+con.register("subscriptions", subscriptions)
+con.register("statechanges", statechanges)
+con.register("usermissions", usermissions)
+con.register("answers", answers)
+
+# 5. Find answer records created during no-subscription periods
+query = """
+SELECT
+    a.answerid,
+    a.userid,
+    a.questionid,
+    a.missionid,
+    a.iscorrect,
+    a.costtime,
+    a.createdat,
+    MAX(s.endedat) AS endedat
+FROM answers a
+JOIN subscriptions s
+    ON a.userid = s.subscriberid
+   AND a.createdat > s.endedat
+WHERE a.createdat >= TIMESTAMP '2021-05-01'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM subscriptions active_s
+      WHERE active_s.subscriberid = a.userid
+        AND active_s.createdat <= a.createdat
+        AND (
+            active_s.endedat IS NULL
+            OR active_s.endedat >= a.createdat
+        )
+  )
+GROUP BY
+    a.answerid,
+    a.userid,
+    a.questionid,
+    a.missionid,
+    a.iscorrect,
+    a.costtime,
+    a.createdat
+ORDER BY a.answerid
+"""
+
+# 6. Execute the query
+result = con.execute(query).df()
+
+# 7. Display the number of records and first five rows
+print("Number of answer records:", len(result))
+print(result.head(5))
+
+# 8. Save the result for Problem 4(b)
+result.to_csv("p4_a_result.csv", index=False)
+
+# Close DuckDB connection
+con.close()
+
+--------------------------------------------------
+Problem4 (b)
+--------------------------------------------------
+import pandas as pd
+import duckdb
+import matplotlib.pyplot as plt
+
+# 1. Read the answer records obtained in Problem 4(a)
+result = pd.read_csv("p4_a_result.csv")
+
+# 2. Create a DuckDB connection
+con = duckdb.connect()
+
+# 3. Register the DataFrame in DuckDB
+con.register("post_subscription_answers", result)
+
+# 4. Calculate each user's average time spent per question
+#    and overall answer accuracy
+query = """
+SELECT
+    userid,
+    AVG(costtime) AS avg_time,
+    AVG(CAST(iscorrect AS DOUBLE)) AS accuracy
+FROM post_subscription_answers
+GROUP BY userid
+ORDER BY userid
+"""
+
+user_stats = con.execute(query).df()
+
+# 5. Display the number of users and first five rows
+print("Number of users:", len(user_stats))
+print(user_stats.head(5))
+
+# 6. Calculate the medians
+median_time = user_stats["avg_time"].median()
+median_accuracy = user_stats["accuracy"].median()
+
+print("Median average time:", median_time)
+print("Median accuracy:", median_accuracy)
+
+# 7. Keep only observations with average time <= 50 seconds
+#    for the scatter plot
+plot_data = user_stats[user_stats["avg_time"] <= 50]
+
+# 8. Create scatter plot
+plt.figure(figsize=(8, 6))
+
+plt.scatter(
+    plot_data["avg_time"],
+    plot_data["accuracy"],
+    alpha=0.6
+)
+
+# Vertical line: median average time
+plt.axvline(
+    x=median_time,
+    linestyle="--",
+    label="Median Average Time"
+)
+
+# Horizontal line: median accuracy
+plt.axhline(
+    y=median_accuracy,
+    linestyle="--",
+    label="Median Accuracy"
+)
+
+plt.xlabel("Average Time Spent per Question (seconds)")
+plt.ylabel("Overall Answer Accuracy")
+plt.title("Average Answer Time vs. Overall Accuracy")
+
+plt.legend()
+plt.tight_layout()
+
+# 9. Save the figure
+plt.savefig("p4_b_scatter.png", dpi=300)
+
+# 10. Display the figure
+plt.show()
+
+# Close DuckDB connection
+con.close()
+
+--------------------------------------------------
+Problem4 (c)
+--------------------------------------------------
+import pandas as pd
+import psycopg2
+import time
+import gc
+
+# 1. Connect to PostgreSQL
+pg_conn = psycopg2.connect(dbname="online_learning")
+
+# 2. Read Answers and Subscriptions into pandas DataFrames
+answers = pd.read_sql(
+    "SELECT * FROM answers",
+    pg_conn
+)
+
+subscriptions = pd.read_sql(
+    "SELECT * FROM subscriptions",
+    pg_conn
+)
+
+pg_conn.close()
+
+cutoff_date = pd.Timestamp("2021-05-01")
+
+
+# ==================================================
+# Program i
+# 1. Merge Answers and Subscriptions
+# 2. Filter
+# 3. Select required columns
+# 4. Display first five rows
+# ==================================================
+
+start_i = time.perf_counter()
+
+# Step 1: Merge the complete Answers and Subscriptions tables
+merged_i = answers.merge(
+    subscriptions,
+    left_on="userid",
+    right_on="subscriberid",
+    suffixes=("_answer", "_subscription")
+)
+
+# Step 2: Filter after merging
+filtered_i = merged_i[
+    (merged_i["createdat_answer"] > merged_i["endedat"])
+    & (merged_i["createdat_answer"] >= cutoff_date)
+]
+
+# Step 3: Select the required columns
+result_i = filtered_i[
+    [
+        "answerid",
+        "userid",
+        "questionid",
+        "missionid",
+        "iscorrect",
+        "costtime",
+        "createdat_answer",
+        "endedat"
+    ]
+].rename(
+    columns={"createdat_answer": "createdat"}
+)
+
+end_i = time.perf_counter()
+time_i = end_i - start_i
+
+# Step 4: Display first five rows
+print("========== Program i ==========")
+print(result_i.head(5))
+print("Number of rows:", len(result_i))
+print(f"Execution time: {time_i:.4f} seconds")
+
+
+# Save only first five rows before clearing intermediate data
+head_i = result_i.head(5).copy()
+
+# Free large intermediate DataFrames
+del merged_i
+del filtered_i
+del result_i
+gc.collect()
+
+
+# ==================================================
+# Program ii
+# 1. Filter Answers first
+# 2. Merge with complete Subscriptions
+# 3. Filter CreatedAt > EndedAt
+# 4. Select required columns
+# 5. Display first five rows
+# ==================================================
+
+start_ii = time.perf_counter()
+
+# Step 1: Filter Answers first
+filtered_answers = answers[
+    answers["createdat"] >= cutoff_date
+]
+
+# Step 2: Merge the filtered Answers with complete Subscriptions
+merged_ii = filtered_answers.merge(
+    subscriptions,
+    left_on="userid",
+    right_on="subscriberid",
+    suffixes=("_answer", "_subscription")
+)
+
+# Step 3: Filter answers created after subscription ended
+filtered_ii = merged_ii[
+    merged_ii["createdat_answer"] > merged_ii["endedat"]
+]
+
+# Step 4: Select the required columns
+result_ii = filtered_ii[
+    [
+        "answerid",
+        "userid",
+        "questionid",
+        "missionid",
+        "iscorrect",
+        "costtime",
+        "createdat_answer",
+        "endedat"
+    ]
+].rename(
+    columns={"createdat_answer": "createdat"}
+)
+
+end_ii = time.perf_counter()
+time_ii = end_ii - start_ii
+
+# Step 5: Display first five rows
+print("\n========== Program ii ==========")
+print(result_ii.head(5))
+print("Number of rows:", len(result_ii))
+print(f"Execution time: {time_ii:.4f} seconds")
+
+
+# ==================================================
+# Comparison
+# ==================================================
+
+print("\n========== Comparison ==========")
+
+print(f"Program i execution time : {time_i:.4f} seconds")
+print(f"Program ii execution time: {time_ii:.4f} seconds")
+
+if time_i < time_ii:
+    print("Program i is faster.")
+elif time_ii < time_i:
+    print("Program ii is faster.")
+else:
+    print("The two programs have the same execution time.")
