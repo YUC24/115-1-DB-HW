@@ -1,0 +1,275 @@
+-- CREATE TABLE
+CREATE TABLE EMPLOYEE (
+    id VARCHAR(15) NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    gender CHAR(1) NOT NULL,
+    birthday DATE NOT NULL,
+    monthly_salary INT NOT NULL,
+    supervisor_id VARCHAR(15),
+    store_id INT,
+	PRIMARY KEY(id)
+);
+
+CREATE TABLE STORE (
+    id INT NOT NULL DEFAULT 0,
+    postal_code CHAR(3) NOT NULL,
+    addr_str VARCHAR(100) NOT NULL,
+    mgr_id VARCHAR(15) NOT NULL DEFAULT 'L645977505',
+	PRIMARY KEY(id),
+	UNIQUE(addr_str),
+    FOREIGN KEY(mgr_id) REFERENCES EMPLOYEE(id)
+		ON DELETE SET DEFAULT
+		ON UPDATE CASCADE
+);
+
+CREATE TABLE PRODUCT (
+    id INT NOT NULL,
+    name VARCHAR(50) NOT NULL,
+	PRIMARY KEY(id),
+	UNIQUE(name)
+);
+
+CREATE TABLE STORE_PRODUCT (
+    store_id INT NOT NULL,
+    product_id INT NOT NULL,
+    PRIMARY KEY(store_id, product_id),
+    FOREIGN KEY(store_id) REFERENCES STORE(id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+    FOREIGN KEY(product_id) REFERENCES PRODUCT(id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+CREATE TABLE SALES (
+    receipt_no VARCHAR(15) NOT NULL,
+	store_id INT NOT NULL,
+    date_time TIMESTAMP NOT NULL,
+	PRIMARY KEY(receipt_no),
+    FOREIGN KEY(store_id) REFERENCES STORE(id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+CREATE TABLE SALES_DETAIL (
+    receipt_no VARCHAR(15) NOT NULL,
+    product_id INT NOT NULL,
+    unit_price INT NOT NULL,
+    qty INT NOT NULL,
+    PRIMARY KEY(receipt_no, product_id),
+    FOREIGN KEY(receipt_no) REFERENCES SALES(receipt_no)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+    FOREIGN KEY(product_id) REFERENCES PRODUCT(id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+CREATE TABLE STORE_PHONE (
+	store_id INT NOT NULL,
+	phone_number VARCHAR(20) NOT NULL,
+	PRIMARY KEY(store_id, phone_number),
+	FOREIGN KEY(store_id) REFERENCES STORE(id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+ALTER TABLE EMPLOYEE 
+ADD FOREIGN KEY (supervisor_id) REFERENCES EMPLOYEE(id)
+	ON DELETE SET NULL
+	ON UPDATE CASCADE;
+	
+ALTER TABLE EMPLOYEE 
+ADD FOREIGN KEY (store_id) REFERENCES STORE(id)
+	ON DELETE SET DEFAULT 
+    ON UPDATE CASCADE;
+
+-- INSERT data
+-- Because EMPLOYEE.store_id refers to STORE.id, and we do not have any store yet, 
+-- we assign NULL to EMPLOYEE.store_id for a while
+INSERT INTO EMPLOYEE (id, name, gender, birthday, monthly_salary, supervisor_id, store_id) VALUES
+('A473564811', 'Chih-Yuan Lee', 'M', '1994-10-01', 63000, 'A465113807', NULL),
+('L645977505', 'Tzu-Hsuan Wang', 'W', '1990-12-30', 150000, NULL, NULL),
+('A465113807', 'Shih-Han Chang', 'W', '1998-06-03', 92000, 'L645977505', NULL),
+('S657432198', 'Chen-Hsi Liu', 'M', '1995-01-10', 102000, 'L645977505', NULL),
+('S153004821', 'Po-Lin Chen', 'M', '2000-05-17', 48000, 'S657432198', NULL),
+('E972346850', 'Hao-Tien Chu', 'M', '2001-08-22', 48000, 'S657432198', NULL),
+('A521870632', 'Ching-Yi Chao', 'W', '1998-05-24', 53000, 'A465113807', NULL),
+('A671224980', 'Chieh Sun', 'M', '1996-04-09', 58000, 'A465113807', NULL);
+
+INSERT INTO STORE (id, postal_code, addr_str, mgr_id) VALUES
+(0, '407', 'No. 10, Section 1, Zhongke Road, Xitun District, Taichung City', 'L645977505'),
+(1, '100', 'No. 113, Section 4, Chongqing South Road, Zhongzheng District, Taipei City', 'A465113807'),
+(2, '803', 'No. 7, Section 3, Dayong Road, Yancheng District, Kaohsiung City', 'S657432198');
+
+-- Now we may assign values to EMPLOYEE.store_id
+UPDATE EMPLOYEE
+SET store_id = 1
+WHERE id = 'A473564811';
+
+UPDATE EMPLOYEE
+SET store_id = 0
+WHERE id = 'L645977505';
+
+UPDATE EMPLOYEE
+SET store_id = 1
+WHERE id = 'A465113807';
+
+UPDATE EMPLOYEE
+SET store_id = 2
+WHERE id = 'S657432198';
+
+UPDATE EMPLOYEE
+SET store_id = 2
+WHERE id = 'S153004821';
+
+UPDATE EMPLOYEE
+SET store_id = 2
+WHERE id = 'E972346850';
+
+UPDATE EMPLOYEE
+SET store_id = 1
+WHERE id = 'A521870632';
+
+UPDATE EMPLOYEE
+SET store_id = 1
+WHERE id = 'A671224980';
+
+-- Now we may set the desired properties for EMPLOYEE.store_id
+ALTER TABLE EMPLOYEE
+ALTER COLUMN store_id SET DEFAULT 0;
+
+-- INSERT data for the remaining tables
+INSERT INTO PRODUCT (id, name) VALUES
+(1, 'Shampoo'),
+(2, 'Skin Moisturizing Lotion'),
+(3, 'Soft Tissue'),
+(4, 'Baby Comfort Diapers'),
+(5, 'Antibacterial Handwash'),
+(6, 'Clean Beauty Wipes');
+
+INSERT INTO STORE_PRODUCT (store_id, product_id) VALUES
+(1, 1),
+(1, 2),
+(1, 3),
+(1, 4),
+(1, 5),
+(1, 6),
+(2, 1),
+(2, 2),
+(2, 3),
+(2, 5);
+
+INSERT INTO SALES (receipt_no, date_time, store_id) VALUES
+('EC23456792', '2025-01-02 13:04:32', 1),
+('EC67890124', '2025-01-02 15:14:26', 1),
+('ER78901246', '2025-01-03 09:25:40', 2),
+('ER34567891', '2025-01-03 11:35:57', 2),
+('EC10345786', '2025-01-03 14:48:11', 1),
+('EC48786019', '2025-01-04 10:24:17', 1),
+('ER84785499', '2025-01-04 12:08:50', 2),
+('EC78901235', '2025-01-04 13:40:18', 1),
+('EC67890514', '2025-01-04 18:23:10', 1),
+('EC65414902', '2025-01-05 16:50:12', 1),
+('EC56789024', '2025-01-05 17:13:21', 1),
+('ER86345527', '2025-01-05 19:45:10', 2),
+('ER37415332', '2025-01-06 14:31:57', 2),
+('EC67081122', '2025-01-06 19:37:54', 1),
+('EC45671256', '2025-01-07 18:53:14', 1),
+('EC64852117', '2025-01-07 20:10:43', 1),
+('EC99684253', '2025-01-07 20:43:58', 1),
+('ER54768014', '2025-01-08 11:41:32', 2),
+('ER65348771', '2025-01-09 09:35:16', 2),
+('ER97600453', '2025-01-09 10:07:34', 2),
+('EC45103646', '2025-01-09 11:41:28', 1),
+('ER78459057', '2025-01-09 12:34:01', 2),
+('ER80463712', '2025-01-09 15:08:42', 2),
+('EC45780465', '2025-01-09 16:37:39', 1),
+('EC98546102', '2025-01-09 18:15:07', 1),
+('ER75694897', '2025-01-10 10:31:54', 2),
+('EC46871443', '2025-01-10 12:09:17', 1),
+('EC40552138', '2025-01-11 14:24:13', 1),
+('EC80497365', '2025-01-11 15:47:36', 1),
+('EC54736149', '2025-01-11 18:30:28', 1),
+('ER57046113', '2025-01-11 19:38:04', 2),
+('ER89722645', '2025-01-12 15:03:47', 2),
+('ER31204897', '2025-01-12 18:16:49', 2);
+
+INSERT INTO SALES_DETAIL (receipt_no, product_id, unit_price, qty) VALUES
+('EC23456792', 1, 200, 1),
+('EC67890124', 1, 200, 3),
+('EC67890124', 2, 190, 3),
+('EC67890124', 5, 110, 5),
+('ER78901246', 1, 200, 1),
+('ER34567891', 2, 190, 2),
+('ER34567891', 3, 35, 10),
+('EC10345786', 6, 50, 6),
+('EC48786019', 5, 110, 2),
+('ER84785499', 1, 200, 5),
+('EC78901235', 2, 190, 1),
+('EC67890514', 1, 200, 1),
+('EC67890514', 2, 190, 1),
+('EC67890514', 3, 35, 10),
+('EC67890514', 5, 110, 4),
+('EC65414902', 2, 190, 2),
+('EC65414902', 3, 35, 5),
+('EC56789024', 1, 205, 1),
+('ER86345527', 5, 110, 1),
+('ER37415332', 5, 110, 3),
+('EC67081122', 5, 110, 2),
+('EC67081122', 6, 55, 4),
+('EC45671256', 1, 205, 1),
+('EC64852117', 1, 205, 1),
+('EC99684253', 2, 190, 3),
+('EC99684253', 3, 35, 10),
+('ER54768014', 3, 35, 15),
+('ER54768014', 5, 110, 3),
+('ER65348771', 1, 205, 3),
+('ER65348771', 2, 190, 2),
+('ER65348771', 3, 35, 10),
+('ER65348771', 5, 110, 1),
+('ER97600453', 1, 200, 1),
+('ER97600453', 2, 190, 1),
+('ER97600453', 3, 35, 5),
+('EC45103646', 1, 205, 3),
+('EC45103646', 2, 190, 2),
+('EC45103646', 3, 35, 5),
+('EC45103646', 4, 700, 4),
+('EC45103646', 5, 110, 1),
+('EC45103646', 6, 55, 6),
+('ER78459057', 1, 200, 2),
+('ER80463712', 1, 200, 2),
+('ER80463712', 2, 190, 3),
+('ER80463712', 3, 35, 15),
+('EC45780465', 1, 205, 4),
+('EC45780465', 2, 190, 1),
+('EC45780465', 3, 35, 10),
+('EC98546102', 5, 110, 1),
+('ER75694897', 5, 83, 5),
+('EC46871443', 2, 143, 4),
+('EC46871443', 3, 26, 30),
+('EC46871443', 4, 525, 5),
+('EC40552138', 1, 154, 6),
+('EC40552138', 2, 143, 6),
+('EC40552138', 3, 26, 40),
+('EC40552138', 4, 525, 10),
+('EC40552138', 6, 41, 8),
+('EC80497365', 6, 41, 6),
+('EC54736149', 1, 154, 5),
+('EC54736149', 2, 143, 4),
+('EC54736149', 5, 83, 5),
+('ER57046113', 1, 150, 3),
+('ER57046113', 2, 143, 2),
+('ER57046113', 3, 26, 15),
+('ER57046113', 5, 83, 1),
+('ER89722645', 5, 83, 4),
+('ER31204897', 1, 150, 1),
+('ER31204897', 2, 143, 2);
+
+INSERT INTO STORE_PHONE (store_id, phone_number) VALUES
+(0, '(04)2483-7890'),
+(0, '(04)5566-8253'),
+(0, '(04)7364-9901'),
+(1, '(02)6667-5112'),
+(1, '(02)9841-0037'),
+(2, '(07)548-6634');
